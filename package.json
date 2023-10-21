@@ -1,0 +1,26 @@
+{
+    "name": "arctxbitcoin",
+    "version": "1.0.0",
+    "description": "Code example for creating bitcoin address and signing transaction",
+    "main": "n/a",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [
+        "bitcoin",
+        "psbt",
+        "hdwallet"
+    ],
+    "author": "Le Hoang Anh",
+    "license": "MIT",
+    "dependencies": {
+        "axios": "^1.5.1",
+        "bip32": "^4.0.0",
+        "bip32-utils": "^0.11.1",
+        "bip39": "^3.1.0",
+        "bitcoinjs-lib": "^6.1.5",
+        "dotenv": "^16.3.1",
+        "ecpair": "^2.1.0",
+        "tiny-secp256k1": "^2.2.3"
+    }
+}
