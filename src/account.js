@@ -1,6 +1,4 @@
-const { log, error } = require("console");
 const bip39 = require("bip39");
-const bip32utils = require("bip32-utils");
 const bitcoin = require("bitcoinjs-lib");
 const ecc = require("tiny-secp256k1");
 const crypto = require("crypto");
@@ -87,9 +85,5 @@ const Accounts = {
         }
     },
 };
-
-// Accounts.fromMnemonic(mnemonic);
-// Accounts.deriveChildren(44, 1, 0, 0, 5);
-// log(Accounts);
 
 module.exports = { Accounts, KeyNode };

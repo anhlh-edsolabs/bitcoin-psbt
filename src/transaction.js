@@ -2,9 +2,7 @@ const axios = require("axios");
 const bitcoin = require("bitcoinjs-lib");
 const ecc = require("tiny-secp256k1");
 const { ECPairFactory } = require("ecpair");
-const { log } = require("console");
 const { Env } = require("./env");
-const { Accounts, KeyNode } = require("./account");
 
 const ECPair = ECPairFactory(ecc);
 const validator = (pubkey, msghash, signature) =>
