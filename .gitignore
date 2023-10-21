@@ -1,0 +1,4 @@
+node_modules
+_draft*
+.env
+yarn-error.log
