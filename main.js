@@ -83,6 +83,6 @@ async function send(from, to, amount) {
 
     // If the transaction has been successfully submitted to the blockchain,
     // `response.data` would contain the transaction hash, and an error message otherwise.
-    // const response = await BtcTx.sendTransaction(rawTx);
-    // return response.data;
+    const response = await BtcTx.sendTransaction(rawTx);
+    return response.data;
 }
