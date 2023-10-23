@@ -1,13 +1,14 @@
 require("dotenv").config();
+const bitcoin = require("bitcoinjs-lib");
 const { log } = require("console");
-const { Accounts, BtcTx } = require("./src");
+const { Accounts, BtcTx, Env } = require("./src");
 
 const mnemonic = process.env.MNEMONIC;
 
 (async () => {
     // Initialize a master account from mnemonic
-    // Accounts.fromMnemonic(mnemonic);
-    Accounts.fromMnemonic(Accounts.newMnemonic(16));
+    Accounts.fromMnemonic(mnemonic);
+    // Accounts.fromMnemonic(Accounts.newMnemonic(16));
 
     // Derive 5 children from master account using BIP44 derivation path "m/44'/1'/0'/0/"
     Accounts.deriveChildren(5, 44, 1);
@@ -15,7 +16,7 @@ const mnemonic = process.env.MNEMONIC;
 
     // get all UTXOs of the sending P2WPKH address
     const utxos = await BtcTx.getUTXOs(Accounts.Children[0].P2WPKH.address);
-    log(utxos);
+    log({ utxos });
 
     // Create a temporary PSBT (Partial Signed Bitcoin Transaction)
     // with all the UTXOs as input. The PSBT is created and signed without fee data
@@ -28,9 +29,11 @@ const mnemonic = process.env.MNEMONIC;
         totalSpending,
         psbt: signedTempPsbt,
     } = BtcTx.createTx(Accounts.Children[0], utxos, [], []);
+    const signedPSBT = signedTempPsbt.toHex();
 
     log({ totalValue });
     log({ totalSpending });
+    log({ signedPSBT });
 
     // acquire the estimated network fee rate (in satoshi) from RPC URL
     const txFeeRate = (await BtcTx.getFeeRate())["1"];
@@ -63,9 +66,9 @@ const mnemonic = process.env.MNEMONIC;
     log("Raw transaction:", rawTx);
 
     log("Sending raw transaction...");
-    const response = await BtcTx.sendTransaction(rawTx);
 
     // If the transaction has been successfully submitted to the blockchain,
     // `response.data` would contain the transaction hash, and an error message otherwise.
+    const response = await BtcTx.sendTransaction(rawTx);
     log(response.data);
 })();
