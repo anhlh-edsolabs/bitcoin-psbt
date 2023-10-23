@@ -5,21 +5,9 @@ const NETWORK = process.env.NETWORK;
 const RPC_API_TESTNET = process.env.RPC_API_TESTNET;
 const RPC_API_MAINNET = process.env.RPC_API_MAINNET;
 
-let Network;
-switch (NETWORK) {
-    case "testnet":
-        Network = bitcoin.networks.testnet
-        break;
-    case "regtest":
-        Network = bitcoin.networks.regtest
-    case "mainnet":
-        Network = bitcoin.networks.bitcoin
-        break;
-}
+const Network =
+    NETWORK == "testnet" ? bitcoin.networks.testnet : bitcoin.networks.bitcoin;
 
-const ApiRoot = {
-    Testnet: RPC_API_TESTNET,
-    Mainnet: RPC_API_MAINNET,
-};
+const ApiRoot = NETWORK == "testnet" ? RPC_API_TESTNET : RPC_API_MAINNET;
 
 module.exports = { Env: { Network, ApiRoot } };
