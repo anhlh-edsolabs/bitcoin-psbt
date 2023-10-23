@@ -10,6 +10,7 @@ const bip32 = BIP32Factory(ecc);
 class KeyNode {
     constructor(node) {
         this.P2PKH = this.getP2PKH(node);
+        this.P2SH = this.getP2SH(node);
         this.P2WPKH = this.getP2WPKH(node);
         this.WIF = node.toWIF();
         this.PrivKeyRaw = node.privateKey.toString("hex");
@@ -19,6 +20,13 @@ class KeyNode {
     getP2PKH(node) {
         return bitcoin.payments.p2pkh({
             pubkey: node.publicKey,
+            network: Env.Network,
+        });
+    }
+
+    getP2SH(node) {
+        return bitcoin.payments.p2sh({
+            redeem: this.getP2WPKH(node),
             network: Env.Network,
         });
     }

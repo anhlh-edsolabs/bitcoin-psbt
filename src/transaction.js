@@ -78,7 +78,7 @@ async function getUTXOs(address) {
     const ApiEndpoint = "address";
     const ApiUtxo = "utxo";
 
-    const query = `${Env.ApiRoot.Testnet}/${ApiEndpoint}/${address}/${ApiUtxo}`;
+    const query = `${Env.ApiRoot}/${ApiEndpoint}/${address}/${ApiUtxo}`;
 
     const response = await axios.get(query);
 
@@ -88,7 +88,7 @@ async function getUTXOs(address) {
 async function getFeeRate() {
     const ApiEndpoint = "fee-estimates";
 
-    const query = `${Env.ApiRoot.Mainnet}/${ApiEndpoint}`;
+    const query = `${Env.ApiRoot}/${ApiEndpoint}`;
 
     const response = await axios.get(query);
 
@@ -98,7 +98,7 @@ async function getFeeRate() {
 async function sendTransaction(rawTx) {
     const ApiEndpoint = "tx";
 
-    const query = `${Env.ApiRoot.Testnet}/${ApiEndpoint}`;
+    const query = `${Env.ApiRoot}/${ApiEndpoint}`;
     const response = await axios.post(query, rawTx);
 
     return response;
