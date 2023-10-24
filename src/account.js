@@ -80,6 +80,9 @@ const Accounts = {
         if (!this.IsInitialized) {
             throw new Error("Accounts must be initialize first");
         }
+        if(numberOfChildren < 0) {
+            throw new Error("Invalid number of children")
+        }
         const root = bip32.fromBase58(this.MasterKey.PrivKey, Env.Network);
         for (let i = 0; i < numberOfChildren; i++) {
             const node = root
