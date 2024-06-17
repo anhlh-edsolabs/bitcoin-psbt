@@ -1,12 +1,18 @@
-const axios = require("axios");
-const bitcoin = require("bitcoinjs-lib");
-const ecc = require("tiny-secp256k1");
-const { ECPairFactory } = require("ecpair");
+// const bitcoin = require("bitcoinjs-lib");
+const core = require("./bitcoin-core");
+const {
+    isP2PKH,
+    isP2WPKH,
+    isP2SHScript,
+    isP2TR,
+} = require("bitcoinjs-lib/src/psbt/psbtutils");
 const { Env } = require("./env");
+const { Account } = require("./account");
+const { Api } = require("./apis");
 
-const ECPair = ECPairFactory(ecc);
+// const ECPair = ECPairFactory(ecc);
 const validator = (pubkey, msghash, signature) =>
-    ECPair.fromPublicKey(pubkey).verify(msghash, signature);
+    core.ECPair.fromPublicKey(pubkey).verify(msghash, signature);
 
 function createTx(
     from,
@@ -16,23 +22,42 @@ function createTx(
     fee = 0,
     requireSigning = true
 ) {
-    const outputScript = from.P2WPKH.output;
-    const psbt = new bitcoin.Psbt({ network: Env.Network });
+    // const outputScript = from.output;
+    const psbt = new core.bitcoin.Psbt({ network: Env.Network });
 
     let inputs = [],
         outputs = [],
         totalValue = 0,
-        totalSpending = 0;
+        totalSpending = 0,
+        nochange = false;
+
+    if (typeof from !== "object" || !(from instanceof Account)) {
+        throw new Error("Invalid account object");
+    }
+
     if (utxos.length > 0) {
         for (const utxo of utxos) {
             const input = {
                 hash: utxo.txid,
                 index: utxo.vout,
-                witnessUtxo: {
-                    script: outputScript,
-                    value: utxo.value,
-                },
             };
+            if (isP2PKH(from.Node[from.Type].output)) {
+                input.nonWitnessUtxo = Buffer.from(utxo.txHex, "hex");
+            } else if (isP2SHScript(from.Node[from.Type].output)) {
+                input.witnessUtxo = {
+                    script: from.Node[from.Type].output,
+                    value: utxo.value,
+                };
+                input.redeemScript = from.Node[from.Type].redeem.output;
+            } else if (
+                isP2WPKH(from.Node[from.Type].output) ||
+                isP2TR(from.Node[from.Type].output)
+            ) {
+                input.witnessUtxo = {
+                    script: from.Node[from.Type].output,
+                    value: utxo.value,
+                };
+            }
 
             totalValue += utxo.value;
 
@@ -40,31 +65,54 @@ function createTx(
         }
         psbt.addInputs(inputs);
 
-        if (to.length == amount.length) {
-            for (let i = 0; i < to.length; i++) {
+        if (to.length > 0 && to.length == amount.length) {
+            if (amount.length == 1 && amount[0] == 21e14) {
+                nochange = true;
+                const spendingAmount =
+                    utxos.reduce((total, utxo) => total + utxo.value, 0) - fee;
                 const output = {
-                    address: to[i],
-                    value: amount[i],
+                    address: to[0],
+                    value: spendingAmount,
                 };
 
-                totalSpending += amount[i];
+                totalSpending += spendingAmount;
 
                 outputs.push(output);
+            } else {
+                for (let i = 0; i < to.length; i++) {
+                    const output = {
+                        address: to[i],
+                        value: amount[i],
+                    };
+
+                    totalSpending += amount[i];
+
+                    outputs.push(output);
+                }
             }
 
             psbt.addOutputs(outputs);
         }
 
-        // add change output
-        psbt.addOutput({
-            address: from.P2WPKH.address.toString(),
-            value: totalValue - totalSpending - fee,
-        });
+        // handle fee
+        if (totalSpending + fee > totalValue) {
+            throw new Error("Insufficient funds");
+        }
 
-        // Signing is required for extracting the finalized transaction 
+        // add change output
+        if (!nochange) {
+            psbt.addOutput({
+                address: from.Node[from.Type].address.toString(),
+                value: totalValue - totalSpending - fee,
+            });
+        }
+
+        // console.log("Unsigned PSBT:", JSON.stringify(psbt, null, 2));
+
+        // Signing is required for extracting the finalized transaction
         // from PSBT and acquiring its virtual size
         if (requireSigning) {
-            const keypair = ECPair.fromWIF(from.WIF, Env.Network);
+            const keypair = core.ECPair.fromWIF(from.Node.WIF, Env.Network);
             psbt.signAllInputs(keypair);
             psbt.validateSignaturesOfAllInputs(validator);
             psbt.finalizeAllInputs();
@@ -74,34 +122,6 @@ function createTx(
     return { totalValue, totalSpending, psbt };
 }
 
-async function getUTXOs(address) {
-    const ApiEndpoint = "address";
-    const ApiUtxo = "utxo";
-
-    const query = `${Env.ApiRoot}/${ApiEndpoint}/${address}/${ApiUtxo}`;
-
-    const response = await axios.get(query);
-
-    return response.data;
-}
-
-async function getFeeRate() {
-    const ApiEndpoint = "fee-estimates";
-
-    const query = `${Env.ApiRoot}/${ApiEndpoint}`;
-
-    const response = await axios.get(query);
-
-    return response.data;
-}
-
-async function sendTransaction(rawTx) {
-    const ApiEndpoint = "tx";
-
-    const query = `${Env.ApiRoot}/${ApiEndpoint}`;
-    const response = await axios.post(query, rawTx);
-
-    return response;
-}
-
-module.exports = { BtcTx: { createTx, getUTXOs, getFeeRate, sendTransaction } };
+module.exports = {
+    BtcTx: { createTx },
+};
