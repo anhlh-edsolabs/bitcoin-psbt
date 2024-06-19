@@ -18,7 +18,7 @@ const mnemonic = process.env.MNEMONIC;
 
     // Derive 5 children from master account using BIP44 derivation path "m/44'/1'/0'/0/"
     // Accounts.deriveChildren(5, 44, 1);
-    Accounts.deriveChildrenFromPath("m/44'/1'/0'/0", 1);
+    Accounts.deriveChildrenFromPath("m/86'/0'/0'/0", 1);
     // log(Accounts);
 
     log("P2PKH:", Accounts.Children[0].P2PKH.address);
@@ -27,17 +27,21 @@ const mnemonic = process.env.MNEMONIC;
     log("P2TR:", Accounts.Children[0].P2TR.address);
     log("Public key:", Accounts.Children[0].PubKeyRaw);
 
-    const response1 = await consolidateUTXOs(
-        Accounts.Children[0],
-        AccountTypes.P2WPKH
-    );
-    log({ response1 });
+    const accountType = AccountTypes.P2TR;
+
+    // const response1 = await consolidateUTXOs(
+    //     Accounts.Children[0],
+    //     accountType
+    // );
+    // log({ response1 });
 
     // send all the coins from valid UTXOs to the P2TR address
     const response2 = await send(
-        new Account(Accounts.Children[0], AccountTypes.P2WPKH),
-        [Accounts.Children[0].P2TR.address],
-        [Constants.MAX_SUPPLY_SATOSHIS] // MAX_SUPPLY_SATOSHIS is used to indicate sending all coins
+        new Account(Accounts.Children[0], accountType),
+        // [Accounts.Children[0].P2TR.address],
+        ['tb1p4za7yq5ap5ccq6mwhtj7z9rpve3hk8ztvz8kdf5qp3femx5gsrxq6q08wm'],
+        // [Constants.MAX_SUPPLY_SATOSHIS] // MAX_SUPPLY_SATOSHIS is used to indicate sending all coins
+        [68000]
     );
     log({ response2 });
 })();
@@ -108,8 +112,8 @@ async function send(from, to, amount) {
 
         // If the transaction has been successfully submitted to the blockchain,
         // `response.data` would contain the transaction hash, and an error message otherwise.
-        const response = await Api.sendTransaction(rawTx);
-        return response.data;
+        // const response = await Api.sendTransaction(rawTx);
+        // return response.data;
     } catch (error) {
         log(error);
     }

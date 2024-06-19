@@ -6,13 +6,11 @@ const {
     isP2SHScript,
     isP2TR,
 } = require("bitcoinjs-lib/src/psbt/psbtutils");
+const { toXOnly } = require("bitcoinjs-lib/src/psbt/bip371");
 const { Env } = require("./env");
+const { Constants } = require("./constants");
 const { Account } = require("./account");
-const { Api } = require("./apis");
-
-// const ECPair = ECPairFactory(ecc);
-const validator = (pubkey, msghash, signature) =>
-    core.ECPair.fromPublicKey(pubkey).verify(msghash, signature);
+const { SignatureValidator } = require("./sig-validator");
 
 function createTx(
     from,
@@ -22,7 +20,6 @@ function createTx(
     fee = 0,
     requireSigning = true
 ) {
-    // const outputScript = from.output;
     const psbt = new core.bitcoin.Psbt({ network: Env.Network });
 
     let inputs = [],
@@ -36,46 +33,29 @@ function createTx(
     }
 
     if (utxos.length > 0) {
+        let isP2TRAddress = false;
+        const fromNode = from.Node[from.Type];
         for (const utxo of utxos) {
-            const input = {
-                hash: utxo.txid,
-                index: utxo.vout,
-            };
-            if (isP2PKH(from.Node[from.Type].output)) {
-                input.nonWitnessUtxo = Buffer.from(utxo.txHex, "hex");
-            } else if (isP2SHScript(from.Node[from.Type].output)) {
-                input.witnessUtxo = {
-                    script: from.Node[from.Type].output,
-                    value: utxo.value,
-                };
-                input.redeemScript = from.Node[from.Type].redeem.output;
-            } else if (
-                isP2WPKH(from.Node[from.Type].output) ||
-                isP2TR(from.Node[from.Type].output)
-            ) {
-                input.witnessUtxo = {
-                    script: from.Node[from.Type].output,
-                    value: utxo.value,
-                };
-            }
+            const input = setupInput(utxo, fromNode);
 
-            totalValue += utxo.value;
+            if (isP2TR(fromNode.output)) {
+                isP2TRAddress = true;
+            }
 
             inputs.push(input);
         }
         psbt.addInputs(inputs);
 
-        if (to.length > 0 && to.length == amount.length) {
-            if (amount.length == 1 && amount[0] == 21e14) {
+        totalValue = utxos.reduce((total, utxo) => total + utxo.value, 0);
+
+        if (to.length == amount.length) {
+            if (amount.length == 1 && amount[0] == Constants.MAX_SUPPLY_SATOSHIS) {
                 nochange = true;
-                const spendingAmount =
-                    utxos.reduce((total, utxo) => total + utxo.value, 0) - fee;
+                totalSpending = totalValue - fee;
                 const output = {
                     address: to[0],
-                    value: spendingAmount,
+                    value: totalSpending,
                 };
-
-                totalSpending += spendingAmount;
 
                 outputs.push(output);
             } else {
@@ -102,7 +82,7 @@ function createTx(
         // add change output
         if (!nochange) {
             psbt.addOutput({
-                address: from.Node[from.Type].address.toString(),
+                address: fromNode.address.toString(),
                 value: totalValue - totalSpending - fee,
             });
         }
@@ -113,13 +93,56 @@ function createTx(
         // from PSBT and acquiring its virtual size
         if (requireSigning) {
             const keypair = core.ECPair.fromWIF(from.Node.WIF, Env.Network);
-            psbt.signAllInputs(keypair);
+
+            let signer = keypair;
+            let validator = SignatureValidator.validator;
+
+            if (isP2TRAddress) {
+                signer = keypair.tweak(
+                    core.bitcoin.crypto.taggedHash(
+                        "TapTweak",
+                        toXOnly(keypair.publicKey)
+                    )
+                );
+                validator = SignatureValidator.schnorrValidator;
+            }
+
+            psbt.signAllInputs(signer);
             psbt.validateSignaturesOfAllInputs(validator);
             psbt.finalizeAllInputs();
+            let _fee = psbt.getFee();
+            console.log("Fee:", _fee);
         }
     }
 
     return { totalValue, totalSpending, psbt };
+}
+
+function setupInput(utxo, fromNode) {
+    const input = {
+        hash: utxo.txid,
+        index: utxo.vout,
+    };
+
+    // build the input object based on the output script type
+    if (isP2PKH(fromNode.output)) {
+        input.nonWitnessUtxo = Buffer.from(utxo.txHex, "hex");
+    } else {
+        input.witnessUtxo = {
+            script: fromNode.output,
+            value: utxo.value,
+        };
+
+        if (isP2SHScript(fromNode.output)) {
+            input.redeemScript = fromNode.redeem.output;
+        } else if (isP2WPKH(fromNode.output) || isP2TR(fromNode.output)) {
+            if (isP2TR(fromNode.output)) {
+                input.tapInternalKey = toXOnly(fromNode.pubkey);
+            }
+        }
+    }
+
+    return input;
 }
 
 module.exports = {
