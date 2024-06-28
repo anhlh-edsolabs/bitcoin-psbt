@@ -6,6 +6,7 @@ const ApiPath = {
     Address: "address",
     Transaction: "tx",
     Estimate: "fee-estimates",
+    RecommendedFee: "fees/recommended",
 };
 
 const Endpoint = {
@@ -100,7 +101,8 @@ async function getTotalUTXOValue(
 }
 
 async function getFeeRate() {
-    const query = `${Env.ApiRoot}/${ApiPath.Estimate}`;
+    // const query = `${Env.ApiRoot}/${ApiPath.Estimate}`;
+    const query = `${Env.ApiRoot}/v1/${ApiPath.RecommendedFee}`;
 
     const response = await axios.get(query);
     // check if the returned data is a json object
