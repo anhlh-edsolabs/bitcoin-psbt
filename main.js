@@ -28,7 +28,7 @@ const mnemonic = process.env.MNEMONIC;
     log("Public key:", Accounts.Children[0].PubKeyRaw);
     log("Private key:", Accounts.Children[0].PrivKeyRaw);
 
-    const accountType = AccountTypes.P2PKH;
+    const accountType = AccountTypes.P2WPKH;
 
     // const response1 = await consolidateUTXOs(
     //     Accounts.Children[0],
@@ -61,6 +61,12 @@ async function send(from, to, amount) {
     );
     log(JSON.stringify(utxos, null, 2));
 
+    // acquire the estimated network fee rate (in satoshi) from RPC URL,
+    // and get the rate value for "1" block confirmation
+    const recommendedFees = await Api.getFeeRate();
+    const txFeeRate = recommendedFees["economyFee"];
+    log({ txFeeRate });
+
     // Create a temporary PSBT (Partial Signed Bitcoin Transaction)
     // with all the UTXOs as input. The PSBT is created and signed without fee data
     // in order to calculate the vsize
@@ -77,18 +83,12 @@ async function send(from, to, amount) {
     log({ signedPSBTHex });
     // log({ signedPSBTB64 });
 
-    // acquire the estimated network fee rate (in satoshi) from RPC URL,
-    // and get the rate value for "1" block confirmation
-    const recommendedFees = await Api.getFeeRate();
-    const txFeeRate = recommendedFees["economyFee"];
-    log({ txFeeRate });
-
     // extract the signed transaction from the temporary PSBT to get its `virtual size`
     // and calculate the network fee. Decimals part of the fee is removed.
     const vSize = signedTempPsbt.extractTransaction().virtualSize();
     log({ vSize });
 
-    const txFee = Number((txFeeRate * vSize).toFixed(0));
+    const txFee = Number(((txFeeRate + 2) * vSize).toFixed(0)); // add 2 satoshi to the fee rate
     log({ txFee });
 
     // Create an actual PSBT with the same inputs and outputs,

@@ -18,7 +18,6 @@ function createTx(
     to = [],
     amount = [],
     fee = 0,
-    requireSigning = true
 ) {
     const psbt = new core.bitcoin.Psbt({ network: Env.Network });
 
@@ -49,7 +48,10 @@ function createTx(
         totalValue = utxos.reduce((total, utxo) => total + utxo.value, 0);
 
         if (to.length == amount.length) {
-            if (amount.length == 1 && amount[0] == Constants.MAX_SUPPLY_SATOSHIS) {
+            if (
+                amount.length == 1 &&
+                amount[0] == Constants.MAX_SUPPLY_SATOSHIS
+            ) {
                 nochange = true;
                 totalSpending = totalValue - fee;
                 const output = {
@@ -91,28 +93,27 @@ function createTx(
 
         // Signing is required for extracting the finalized transaction
         // from PSBT and acquiring its virtual size
-        if (requireSigning) {
-            const keypair = core.ECPair.fromWIF(from.Node.WIF, Env.Network);
+        const keypair = core.ECPair.fromWIF(from.Node.WIF, Env.Network);
 
-            let signer = keypair;
-            let validator = SignatureValidator.validator;
+        let signer = keypair;
+        let validator = SignatureValidator.validator;
 
-            if (isP2TRAddress) {
-                signer = keypair.tweak(
-                    core.bitcoin.crypto.taggedHash(
-                        "TapTweak",
-                        toXOnly(keypair.publicKey)
-                    )
-                );
-                validator = SignatureValidator.schnorrValidator;
-            }
-
-            psbt.signAllInputs(signer);
-            psbt.validateSignaturesOfAllInputs(validator);
-            psbt.finalizeAllInputs();
-            let _fee = psbt.getFee();
-            console.log("Fee:", _fee);
+        if (isP2TRAddress) {
+            signer = keypair.tweak(
+                core.bitcoin.crypto.taggedHash(
+                    "TapTweak",
+                    toXOnly(keypair.publicKey)
+                )
+            );
+            validator = SignatureValidator.schnorrValidator;
         }
+
+        psbt.signAllInputs(signer);
+        psbt.validateSignaturesOfAllInputs(validator);
+        psbt.finalizeAllInputs();
+        
+        let _fee = psbt.getFee();
+        console.log("Fee:", _fee);
     }
 
     return { totalValue, totalSpending, psbt };
